@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>* { margin: 0; padding: 0; } body { background: transparent; overflow: hidden; }</style>
+    <script src="https://unpkg.com/tesseract.js@5.0.2/dist/tesseract.min.js"></script>
+    <script>
+        (function () {
+            let workerPromise = null;
+            let busy = false;
+            let queued = null;
+
+            function getWorker() {
+                if (!workerPromise) {
+                    workerPromise = Tesseract.createWorker('eng').catch(function (err) {
+                        workerPromise = null;
+                        throw err;
+                    });
+                }
+                return workerPromise;
+            }
+
+            function extractText(data, minConfidence) {
+                if (!data) return '';
+                if (!Array.isArray(data.words) || data.words.length === 0) return data.text || '';
+                const threshold = (minConfidence || 0) * 100;
+                return data.words
+                    .filter(function (w) { return w.confidence >= threshold; })
+                    .map(function (w) { return w.text; })
+                    .join(' ');
+            }
+
+            function post(text) {
+                return fetch('https://' + GetParentResourceName() + '/checktext', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                    body: JSON.stringify({ text: text })
+                });
+            }
+
+            async function runOcr(image, minConfidence) {
+                if (busy) {
+                    queued = { image: image, minConfidence: minConfidence };
+                    return;
+                }
+                busy = true;
+
+                let text = '';
+                try {
+                    const worker = await getWorker();
+                    const result = await worker.recognize(image);
+                    text = extractText(result && result.data, minConfidence);
+                } catch (err) {
+                    console.error('[UNA-OCR] recognize error:', err);
+                }
+
+                try {
+                    await post(text);
+                } catch (err) {
+                    console.error('[UNA-OCR] callback error:', err);
+                }
+
+                busy = false;
+                if (queued) {
+                    const next = queued;
+                    queued = null;
+                    runOcr(next.image, next.minConfidence);
+                }
+            }
+
+            window.addEventListener('message', function (event) {
+                const d = event.data || {};
+                if (typeof d.action === 'string' && d.action.indexOf(':checkString') !== -1 && d.image) {
+                    runOcr(d.image, d.minConfidence);
+                }
+            });
+        })();
+    </script>
+</head>
+<body></body>
+</html>
