@@ -190,7 +190,7 @@ una_secocr/
 El cliente sube la imagen una sola vez a `RawScreenshots`. La `proxy_url` del attachment resultante se usa como `image.url` en el embed del canal `Detections`. Discord sirve la misma imagen — no hay doble subida.
 
 **¿Graba vídeo?**
-No. Se eliminó la grabación junto con el resource `screencapture`, el comando `/un_secgrabar` y la integración con FiveManage. Solo se usan capturas de pantalla.
+No. Se eliminó la grabación (optimizacion).
 
 **El OCR da falsos positivos.**
 Sube `Config.OCR.Confidence` (por ejemplo a `0.70`), deja `WholeWord = true` y/o elimina las palabras más genéricas del array `Words`.
